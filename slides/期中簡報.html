@@ -1,0 +1,356 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=1920"><title>BC/1.0 多人幾A幾B 期中簡報</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"><style>
+@page{size:1920px 1080px;margin:0}
+*{box-sizing:border-box;margin:0}
+html,body{background:#222;margin:0}
+section{position:relative;width:1920px;height:1080px;overflow:hidden;break-after:page}
+ul,ol{padding-left:1.2em}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:0.5em 0.6em;border-bottom:1px solid #cfd5df}
+th{font-weight:700}
+x-shape{display:block;flex:none}
+x-shape[kind=arrow-right]{clip-path:polygon(0 30%,60% 30%,60% 0,100% 50%,60% 100%,60% 70%,0 70%)}
+@media screen{section{margin:0 auto 24px}}
+</style></head><body><section id="cover" data-transition="fade" style="background:#14213D;color:#F7F6F1;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:space-between">
+<p style="font-size:30px;color:#F2A65A;font-weight:500;letter-spacing:4px">網路應用軟體設計 · 期末專題期中簡報</p>
+<div style="display:flex;flex-direction:column;gap:40px">
+<h1 style="font-size:104px;font-weight:700;line-height:1.15;color:#F7F6F1">多人幾A幾B<br>網路對戰系統</h1>
+<p style="font-size:40px;color:#C9D3E3;line-height:1.4">伺服器 · 人類客戶端 · AI 代理人，皆遵循 <span style="color:#F2A65A">BC/1.0</span> TCP JSON 協定</p>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:end">
+<p style="font-size:30px;color:#C9D3E3;line-height:1.5">組別 [G__]　成員 [姓名 ×N]</p>
+<p style="font-size:30px;color:#C9D3E3">2026 / 11 / 10</p>
+</div>
+
+</section>
+<section id="goal" data-transition="fade" style="background:#F7F6F1;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">01　題目與規則</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">2–6 人同時對戰，一次喊數對所有人有效</h2>
+</div>
+<div style="display:flex;gap:56px;flex:1">
+<div style="width:520px;display:flex;flex-direction:column;justify-content:center;gap:16px;background:#14213D;border-radius:24px;padding:56px">
+<p style="font-size:160px;font-weight:700;color:#F2A65A;line-height:1">5040</p>
+<p style="font-size:30px;color:#C9D3E3;line-height:1.5">種可能的秘密<br>4 位數、數字互不重複<br>10 × 9 × 8 × 7</p>
+</div>
+<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:28px">
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700">輪流喊數</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.5">伺服器隨機排定順序，喊一次就同時猜所有存活對手</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700">各自回報 xAyB</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.5">每位被猜者依自己的秘密回報，結果公開給所有人</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700">4A0B 出局</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.5">剩 1 人或達 max_turns 終局，所有人揭示秘密</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700">排名</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.5">存活者 &gt; 被猜中者（越晚越前）&gt; 棄權者；作弊 DQ 無名次</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　2</p>
+
+</section>
+<section id="arch" data-section="系統架構與 BC/1.0 協定" data-transition="fade" style="background:#EEF1F5;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">02　系統架構</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">主從式架構：一個 bc.py，三種角色</h2>
+<div style="position:absolute;left:128px;top:340px;width:460px;height:250px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700;color:#1B4FB0">人類客戶端 client</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">背景執行緒收訊、主執行緒讀鍵盤<br>秘密與鹽值只留在本機</p>
+</div>
+<div style="position:absolute;left:128px;top:630px;width:460px;height:250px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700;color:#1B4FB0">AI 代理人 ai</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">候選集合 + 限時搜尋<br>可連任何一組的伺服器</p>
+</div>
+<div style="position:absolute;left:730px;top:340px;width:520px;height:540px;background:#14213D;border-radius:24px;padding:40px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:36px;font-weight:700;color:#F2A65A">伺服器 server（asyncio）</h3>
+<ul style="font-size:26px;color:#E4E9F2;line-height:1.6">
+<li>連線管理：≤ 64 條，HELLO 10 秒逾時</li>
+<li>訊息解析、欄位驗證、錯誤碼</li>
+<li>遊戲流程協程：大廳→承諾→回合→揭示</li>
+<li>每位玩家候選集合一致性檢查</li>
+<li>計算排名，廣播 GAME_OVER</li>
+</ul>
+</div>
+<div style="position:absolute;left:1392px;top:340px;width:400px;height:250px;background:#FFFFFF;border:2px solid #B4561C;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700;color:#9A4512">BOT-1 … BOT-K</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">--bots K 時伺服器啟動 AI 子行程，連回 127.0.0.1</p>
+</div>
+<div style="position:absolute;left:1392px;top:630px;width:400px;height:250px;background:#FFFFFF;border:2px solid #B4561C;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:36px;font-weight:700;color:#9A4512">日誌 logs/</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">每局一個 .jsonl，每則收送訊息一行並 flush</p>
+</div>
+<x-connector x1="588" y1="465" x2="730" y2="465" head="both" style="color:#2D6CDF;border-width:4px"></x-connector>
+<x-connector x1="588" y1="755" x2="730" y2="755" head="both" style="color:#2D6CDF;border-width:4px"></x-connector>
+<x-connector x1="1250" y1="465" x2="1392" y2="465" head="both" style="color:#B4561C;border-width:4px"></x-connector>
+<x-connector x1="1250" y1="755" x2="1392" y2="755" head="end" style="color:#B4561C;border-width:4px"></x-connector>
+<p style="position:absolute;left:592px;top:410px;width:134px;font-size:24px;font-weight:700;color:#1B4FB0;text-align:center">TCP</p>
+<p style="position:absolute;left:592px;top:700px;width:134px;font-size:24px;font-weight:700;color:#1B4FB0;text-align:center">TCP</p>
+<p style="position:absolute;left:1254px;top:410px;width:134px;font-size:24px;font-weight:700;color:#9A4512;text-align:center">TCP</p>
+<p style="position:absolute;left:1254px;top:700px;width:134px;font-size:24px;font-weight:700;color:#9A4512;text-align:center">寫檔</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">所有連線：TCP · 每則訊息一行 UTF-8 JSON（LF 結尾）· 預設埠 5040 · 只用 Python 3.10+ 標準函式庫　3</p>
+
+</section>
+<section id="protocol" data-transition="fade" style="background:#F7F6F1;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">03　BC/1.0 訊息格式</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">一行一則 JSON：簡單、好除錯、可跨組互通</h2>
+</div>
+<div style="background:#14213D;border-radius:20px;padding:32px 40px;display:flex;flex-direction:column;gap:6px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#E4E9F2;line-height:1.6"><span style="color:#7FB0FF">→</span> {"type":"HELLO","protocol":"BC/1.0","name":"G07-AI","team":"G07","kind":"ai"}</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#E4E9F2;line-height:1.6"><span style="color:#F2A65A">←</span> {"type":"WELCOME","protocol":"BC/1.0","player_id":"p1","server":"BC-basic/1.0"}</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#E4E9F2;line-height:1.6"><span style="color:#7FB0FF">→</span> {"type":"GUESS","turn_id":7,"guess":"0123"}</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#E4E9F2;line-height:1.6"><span style="color:#7FB0FF">→</span> {"type":"FEEDBACK","turn_id":7,"a":1,"b":2}</p>
+</div>
+<div style="display:flex;gap:28px;flex:1">
+<div style="flex:1;background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:34px;font-weight:700">訊框規則</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.55">單行 ≤ 4096 位元組<br>自行緩衝、以 LF 切行，不怕分段或黏包<br>拒絕 NaN；布林不可冒充整數</p>
+</div>
+<div style="flex:1;background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:34px;font-weight:700">23 種訊息</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.55">客戶端 → 伺服器 9 種<br>HELLO COMMIT GUESS FEEDBACK REVEAL…<br>伺服器 → 客戶端 14 種</p>
+</div>
+<div style="flex:1;background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:34px;font-weight:700">ERROR 錯誤碼</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.55">{code, message, fatal}<br>fatal: true 後伺服器關閉連線<br>單一連線錯誤 &gt; 20 次即斷線</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　4</p>
+
+</section>
+<section id="flow" data-transition="fade" style="background:#F7F6F1;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">04　一局的協定流程</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">五個階段，由伺服器狀態機驅動</h2>
+</div>
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:284px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:600;color:#1B4FB0">① LOBBY</p>
+<h3 style="font-size:34px;font-weight:700">大廳</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4A5568;line-height:1.5">HELLO<br>WELCOME<br>LOBBY</p>
+</div>
+<x-shape kind="arrow-right" style="width:40px;height:24px;background:#B4561C"></x-shape>
+<div style="width:284px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:600;color:#1B4FB0">② COMMIT</p>
+<h3 style="font-size:34px;font-weight:700">承諾</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4A5568;line-height:1.5">GAME_START<br>COMMIT<br>COMMITS</p>
+</div>
+<x-shape kind="arrow-right" style="width:40px;height:24px;background:#B4561C"></x-shape>
+<div style="width:284px;background:#14213D;border:2px solid #14213D;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:600;color:#F2A65A">③ PLAY</p>
+<h3 style="font-size:34px;font-weight:700;color:#F7F6F1">回合循環</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#C9D3E3;line-height:1.5">TURN<br>GUESS<br>FEEDBACK</p>
+</div>
+<x-shape kind="arrow-right" style="width:40px;height:24px;background:#B4561C"></x-shape>
+<div style="width:284px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:600;color:#1B4FB0">④ END</p>
+<h3 style="font-size:34px;font-weight:700">終局揭示</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4A5568;line-height:1.5">REVEAL_REQUEST<br>REVEAL<br>REVEALED</p>
+</div>
+<x-shape kind="arrow-right" style="width:40px;height:24px;background:#B4561C"></x-shape>
+<div style="width:284px;background:#FFFFFF;border:2px solid #2D6CDF;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:8px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;font-weight:600;color:#1B4FB0">⑤ OVER</p>
+<h3 style="font-size:34px;font-weight:700">結束</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#4A5568;line-height:1.5">GAME_OVER<br>ranking<br>關閉連線</p>
+</div>
+</div>
+<div style="background:#E6EBF3;border-radius:20px;padding:32px 40px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:32px;font-weight:700">③ 每一回合</h3>
+<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#FFFFFF;padding:10px 18px;border-radius:12px">TURN</p>
+<x-shape kind="arrow-right" style="width:32px;height:20px;background:#6B7486"></x-shape>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#FFFFFF;padding:10px 18px;border-radius:12px">GUESS</p>
+<x-shape kind="arrow-right" style="width:32px;height:20px;background:#6B7486"></x-shape>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#FFFFFF;padding:10px 18px;border-radius:12px">GUESS_MADE</p>
+<x-shape kind="arrow-right" style="width:32px;height:20px;background:#6B7486"></x-shape>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#FFFFFF;padding:10px 18px;border-radius:12px">FEEDBACK × 每位被猜者</p>
+<x-shape kind="arrow-right" style="width:32px;height:20px;background:#6B7486"></x-shape>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#FFFFFF;padding:10px 18px;border-radius:12px">TURN_RESULT</p>
+<x-shape kind="arrow-right" style="width:32px;height:20px;background:#6B7486"></x-shape>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#F9E3CF;color:#7A3A0E;padding:10px 18px;border-radius:12px">4A0B → 立即揭示驗證</p>
+</div>
+<p style="font-size:26px;color:#4A5568">喊數逾時：本回合跳過，連續 3 次判棄權　·　回報逾時或斷線：列入 forfeited　·　承諾後不足 2 人：GAME_OVER(ABORTED)</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　5</p>
+
+</section>
+<section id="fair" data-transition="fade" style="background:#EEF1F5;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">05　公平性機制</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">伺服器不知道任何秘密，也能抓出作弊</h2>
+</div>
+<div style="display:flex;gap:40px;flex:1">
+<div style="flex:1;background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:38px;font-weight:700;color:#1B4FB0">承諾–揭示 commit–reveal</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.55">客戶端產生秘密 s 與 16 位元組隨機鹽值 r，開局只送出：</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;background:#14213D;color:#F2A65A;padding:20px 24px;border-radius:12px">commit = SHA256(s + ":" + r)</p>
+<p style="font-size:28px;color:#4A5568;line-height:1.55">被猜中或終局時送 REVEAL(s, r)，任何人都能重算比對；鹽值讓 5040 種秘密無法被暴力反查</p>
+</div>
+<div style="flex:1;background:#FFFFFF;border-radius:20px;padding:40px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:38px;font-weight:700;color:#1B4FB0">公開一致性檢查</h3>
+<p style="font-size:28px;color:#4A5568;line-height:1.55">為每位玩家 X 維護候選集合 C(X)，初始 5040 個；每次 X 回報 (g, a, b) 就只留 score(g, s) = (a, b) 的 s</p>
+<p style="font-size:28px;color:#4A5568;line-height:1.55">C(X) 變空集合：當回合直接 DQ<br>揭示後逐筆重算：不符列入 bad_turns</p>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#DCEBDD;color:#1F5130;padding:8px 16px;border-radius:10px">OK</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#F9E3CF;color:#7A3A0E;padding:8px 16px;border-radius:10px">BAD_COMMIT</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#F9E3CF;color:#7A3A0E;padding:8px 16px;border-radius:10px">INCONSISTENT</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;background:#F9E3CF;color:#7A3A0E;padding:8px 16px;border-radius:10px">NO_REVEAL</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　6　·　非 OK 的判定一律取消資格、沒有名次</p>
+
+</section>
+<section id="server" data-transition="fade" style="background:#F7F6F1;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">06　伺服器併發設計</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">asyncio：一個慢速連線擋不住其他人</h2>
+</div>
+<div style="display:flex;gap:48px;flex:1">
+<div style="flex:1;display:flex;flex-direction:column;gap:20px">
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:8px">
+<h3 style="font-size:32px;font-weight:700">每條連線一個讀取協程</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">asyncio.start_server 接受連線，各自讀行、解析、驗證</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:8px">
+<h3 style="font-size:32px;font-weight:700">遊戲流程是另一個協程</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">asyncio.Event + 逾時等待「所有人都送了，或時間到」</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:8px">
+<h3 style="font-size:32px;font-weight:700">訊息處理函式是同步的</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">同封包的多則訊息依序處理，不會搶跑；連送兩個 FEEDBACK 一定回 DUPLICATE</p>
+</div>
+</div>
+<div style="width:620px;display:flex;flex-direction:column;gap:16px">
+<h3 style="font-size:32px;font-weight:700">時限（命令列可調）</h3>
+<table style="font-size:26px;color:#1B2A44">
+<tr><th style="width:62%">項目</th><th style="width:38%;text-align:right">預設</th></tr>
+<tr><td>連線後送 HELLO</td><td style="text-align:right">10 秒</td></tr>
+<tr><td>--commit-timeout</td><td style="text-align:right">30 秒</td></tr>
+<tr><td>--guess-timeout</td><td style="text-align:right">60 秒</td></tr>
+<tr><td>--feedback-timeout</td><td style="text-align:right">60 秒</td></tr>
+<tr><td>--reveal-timeout</td><td style="text-align:right">15 秒</td></tr>
+<tr><td>--max-skips</td><td style="text-align:right">3 次</td></tr>
+<tr><td>--max-turns</td><td style="text-align:right">120 回合</td></tr>
+</table>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　7</p>
+
+</section>
+<section id="ai" data-transition="fade" style="background:#F7F6F1;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">07　AI 猜測演算法</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">每回合：更新候選 → 選目標 → 選喊數</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;flex:1">
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#B4561C">1</p>
+<h3 style="font-size:32px;font-weight:700">用上所有公開資訊</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">每則 TURN_RESULT 都縮小每位回報者的候選集合，不只自己的喊數</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#B4561C">2</p>
+<h3 style="font-size:32px;font-weight:700">鎖定最弱對手</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">挑候選最少的存活對手；只剩 1–2 個候選就直接喊</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#B4561C">3</p>
+<h3 style="font-size:32px;font-weight:700">開局表</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">對手只被喊過一次時，查離線窮舉的第二手表（14 種結果，數字置換套用）</p>
+</div>
+<div style="background:#14213D;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#F2A65A">4</p>
+<h3 style="font-size:32px;font-weight:700;color:#F7F6F1">限時 most-parts 搜尋</h3>
+<p style="font-size:26px;color:#C9D3E3;line-height:1.5">挑讓候選分成最多組的數字（Kooi 2005）；預算 = 喊數時限 × 0.3</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#B4561C">5</p>
+<h3 style="font-size:32px;font-weight:700">危險模式</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">自己的秘密只剩 ≤ 2 種可能時，只在候選中挑，爭取這手猜中</p>
+</div>
+<div style="background:#FFFFFF;border:1px solid #DDE1E8;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:10px">
+<p style="font-size:44px;font-weight:700;color:#B4561C">6</p>
+<h3 style="font-size:32px;font-weight:700">誠實與自我驗證</h3>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">一律誠實回報；自行驗算別人的揭示；fast_score 位元遮罩快 3 倍</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　8　·　同分時偏好候選本身（有機會直接 4A），再偏好最大組較小者</p>
+
+</section>
+<section id="results" data-transition="fade" style="background:#14213D;color:#F7F6F1;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#F2A65A;font-weight:700;letter-spacing:3px">08　AI 實驗結果</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15;color:#F7F6F1">接近理論最佳，且在嚴格時限下零逾時</h2>
+</div>
+<div style="display:flex;gap:40px;flex:1">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:4px solid #F2A65A;padding:32px 0 0 0">
+<p style="font-size:120px;font-weight:700;color:#F2A65A;line-height:1">5.24</p>
+<h3 style="font-size:32px;font-weight:700;color:#F7F6F1">平均猜中次數</h3>
+<p style="font-size:26px;color:#C9D3E3;line-height:1.55">300 個隨機秘密、單一對手；第一版 5.36，理論最佳約 5.21（Tanaka），最多 7 次</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:4px solid #7FB0FF;padding:32px 0 0 0">
+<p style="font-size:120px;font-weight:700;color:#7FB0FF;line-height:1">62%</p>
+<h3 style="font-size:32px;font-weight:700;color:#F7F6F1">兩人對戰勝率</h3>
+<p style="font-size:26px;color:#C9D3E3;line-height:1.55">透過網路，目前版本對第一版 100 局勝 62 局，平均 9.0 回合</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;border-top:4px solid #F7F6F1;padding:32px 0 0 0">
+<p style="font-size:120px;font-weight:700;color:#F7F6F1;line-height:1">0</p>
+<h3 style="font-size:32px;font-weight:700;color:#F7F6F1">次逾時／棄權／ERROR</h3>
+<p style="font-size:26px;color:#C9D3E3;line-height:1.55">6 人純 AI、所有時限 1.5 秒，30 局皆正常打完（LAST_PLAYER）</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#C9D3E3">多人局策略差異不明顯：資訊全公開，名次主要取決於喊數順序　·　9</p>
+
+</section>
+<section id="robust" data-transition="fade" style="background:#EEF1F5;color:#1B2A44;font-family:'Noto Sans TC', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;color:#B4561C;font-weight:700;letter-spacing:3px">09　健壯性、測試與下一步</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.15">惡意輸入只傷到自己的連線</h2>
+</div>
+<div style="display:flex;gap:48px">
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<table style="font-size:26px;color:#1B2A44">
+<tr><th style="width:38%">威脅</th><th style="width:62%">處理</th></tr>
+<tr><td>惡意 JSON</td><td>只用 json.loads，不用 eval／pickle；過深巢狀回 BAD_JSON</td></tr>
+<tr><td>聊天洗版</td><td>3 秒最多 5 則；錯誤 &gt; 20 次斷線</td></tr>
+<tr><td>不讀資料</td><td>待送 &gt; 1 MiB 強制斷線</td></tr>
+<tr><td>大量閒置連線</td><td>最多 64 條，HELLO 10 秒逾時</td></tr>
+<tr><td>順序被預測</td><td>secrets.SystemRandom 洗牌</td></tr>
+</table>
+</div>
+<div style="width:520px;display:flex;flex-direction:column;gap:20px">
+<div style="background:#14213D;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:56px;font-weight:700;color:#F2A65A;line-height:1.1">48 / 48</p>
+<p style="font-size:26px;color:#C9D3E3">課程 bc_selftest.py 全數通過</p>
+</div>
+<div style="background:#FFFFFF;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:56px;font-weight:700;color:#1B4FB0;line-height:1.1">72 / 72</p>
+<p style="font-size:26px;color:#4A5568">自寫黑箱測試 bc_test.py：只走 TCP，也能測別組</p>
+</div>
+<div style="background:#FFFFFF;border-radius:18px;padding:28px 32px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:32px;font-weight:700;color:#1B2A44">壓力測試</p>
+<p style="font-size:26px;color:#4A5568;line-height:1.5">對局中開 80 條連線＋洗版，其餘 3 人照常打完</p>
+</div>
+</div>
+</div>
+<div style="background:#F9E3CF;border-radius:18px;padding:24px 32px;display:flex;gap:24px;align-items:center">
+<p style="font-size:28px;font-weight:700;color:#7A3A0E;white-space:nowrap">下一步</p>
+<p style="font-size:26px;color:#5A2A0A;line-height:1.5">跨組連線對戰與 AI 互測　·　補足 100 局以上 AI 實驗　·　撰寫設計文件　·　[其他待辦]</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6B7486">BC/1.0 多人幾A幾B · 期中簡報　10　·　謝謝，歡迎提問</p>
+
+</section>
+<script>
+document.querySelectorAll('x-connector').forEach(function(c,i){
+ var x1=+c.getAttribute('x1'),y1=+c.getAttribute('y1'),x2=+c.getAttribute('x2'),y2=+c.getAttribute('y2');
+ var head=c.getAttribute('head')||'none', col=c.style.color||'#333', w=parseFloat(c.style.borderWidth)||3, id='m'+i;
+ var me=(head=='end'||head=='both')?' marker-end="url(#'+id+')"':'';
+ var ms=(head=='start'||head=='both')?' marker-start="url(#'+id+')"':'';
+ c.outerHTML='<svg width="1920" height="1080" style="position:absolute;left:0;top:0;overflow:visible"><defs><marker id="'+id+'" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto-start-reverse"><path d="M0,0 L4,2 L0,4 z" fill="'+col+'"/></marker></defs><line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+col+'" stroke-width="'+w+'"'+me+ms+'/></svg>';
+});
+</script></body></html>
