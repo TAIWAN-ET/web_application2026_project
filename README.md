@@ -2,8 +2,8 @@
 
 網路應用軟體設計 2026 期末專題。本專題實作一套 **2–6 人同時對戰的「幾A幾B」猜數字遊戲**，包含伺服器、人類玩家客戶端與 AI 代理人三種角色，三者之間全部依照課程規範的 **BC/1.0 應用層通訊協定**（TCP + 一行一則 UTF-8 JSON）溝通，因此可以和其他組的伺服器或客戶端互通對戰。
 
-- 伺服器、客戶端與演算法 AI 只使用 **Python 3.10 以上的標準函式庫**。
-- AI 代理人可選用 **LLM 模式**：呼叫 Anthropic Claude API，由 LLM 的回應決定喊數（需 `pip install anthropic` 與環境變數 `ANTHROPIC_API_KEY`；沒有時自動退回演算法）。詳見 [`bc_game/README.md` 第 7.3 節](bc_game/README.md#73-llm-模式由外部-llm-決定喊數)。
+- 只使用 **Python 3.10 以上的標準函式庫**，不需要安裝任何第三方套件。
+- AI 代理人有 **LLM 模式**：透過 **OpenAI 相容 API**（`/v1/chat/completions`）呼叫 LLM，由 LLM 的回應決定喊數；可接 **Ollama**、LM Studio、vLLM 等本機模型或相容的雲端服務。連不上或回應不合格時自動退回演算法。詳見 [`bc_game/README.md` 第 7.3 節](bc_game/README.md#73-llm-模式由外部-llm-決定喊數)。
 - 課程提供的 `bc_selftest.py` **48 項檢查全數通過**；自行撰寫的黑箱測試 `bc_test.py` **72 項全數通過**。
 
 ## 目錄結構
@@ -17,7 +17,7 @@
 │   ├── bc_test.py         自寫的獨立黑箱測試（不匯入 bc.py，只透過 TCP 測試）
 │   ├── bc_llm_test.py     LLM 模式的單元測試（假的 LLM，不需金鑰）
 │   ├── README.md          詳細技術說明（協定細節、錯誤碼、AI 策略與實驗數據）
-│   └── requirements.txt   套件清單（LLM 模式選用 anthropic）
+│   └── requirements.txt   套件清單（無第三方套件）
 └── slides/
     ├── 期中簡報.pdf
     ├── 期中簡報.pptx
@@ -81,14 +81,16 @@ python bc.py client --host 127.0.0.1 --name 小明 --team G07
 python bc.py ai --host 127.0.0.1 --name G07-AI --team G07
 ```
 
-AI 的 LLM 模式（預設開啟，沒有金鑰就自動改用演算法）：
+AI 的 LLM 模式（預設連本機 Ollama；連不上就自動改用演算法）：
 
 ```bash
-pip install anthropic
-export ANTHROPIC_API_KEY=sk-ant-...        # Windows PowerShell：$env:ANTHROPIC_API_KEY="sk-ant-..."
+ollama pull qwen2.5:7b                     # 先下載模型（Ollama 預設在 http://localhost:11434）
 python bc.py server --port 6000 --players 2 --guess-timeout 60
-python bc.py ai --port 6000 --name LLM-AI                         # 用 LLM 喊數
-python bc.py ai --port 6000 --name ALGO-AI --llm off              # 只用演算法
+python bc.py ai --port 6000 --name LLM-AI                          # 用 LLM 喊數
+python bc.py ai --port 6000 --name ALGO-AI --llm off               # 只用演算法
+
+# 其他 OpenAI 相容服務：改 base URL、模型與金鑰環境變數即可
+python bc.py ai --port 6000 --name LMS-AI --llm-base-url http://localhost:1234/v1 --llm-model qwen2.5-7b-instruct
 ```
 
 跑一場純 AI 對戰（4 個 AI、連續 5 局）：

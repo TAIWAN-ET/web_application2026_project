@@ -1,90 +1,151 @@
-"""用假的 LLM 客戶端測試 bc.py 的 LLM 模式（不需網路與金鑰，但需要 pip install anthropic）。
+"""LLM 模式的測試：在本機開一個假的 OpenAI 相容伺服器（/v1/chat/completions），
+不需要網路、金鑰或真的模型，只用標準函式庫。
 
   python bc_llm_test.py
 """
-import sys, time, json, types, os, random
+import http.server
+import json
+import os
+import sys
+import threading
+import time
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bc
-import anthropic
 
-class Block:
-    def __init__(s, t): s.type, s.text = "text", t
-class Resp:
-    def __init__(s, t, stop="end_turn"): s.content, s.stop_reason = [Block(t)], stop
+MODE = {"name": "good"}
+REQUESTS = []
 
-calls = []
-class FakeMessages:
-    def __init__(s, mode): s.mode = mode
-    def create(s, **kw):
-        calls.append(kw)
-        st = json.loads(kw["messages"][0]["content"])
-        m = s.mode
-        if m == "good":   return Resp(json.dumps({"guess": st["options"][0]["guess"], "reason": "最多分組"}))
-        if m == "second": return Resp(json.dumps({"guess": st["options"][1]["guess"], "reason": "次佳"}))
-        if m == "garbage":return Resp("我覺得是 12345")
-        if m == "dup":    return Resp('{"guess":"1123","reason":"x"}')
-        if m == "bad_quality": return Resp('{"guess":"0123","reason":"x"}')
-        if m == "slow":   time.sleep(5); return Resp('{"guess":"0123","reason":"x"}')
-        if m == "refusal":return Resp("", "refusal")
-        if m == "auth":   raise anthropic.AuthenticationError("bad key", response=types.SimpleNamespace(status_code=401, headers={}, request=None), body=None)
-class FakeClient:
-    def __init__(s, mode): s.beta = types.SimpleNamespace(messages=FakeMessages(mode))
-    def with_options(s, **kw): return s
 
-def make_ai(mode, timeout=60.0):
-    a = bc.parse_args(["ai", "--quiet", "--llm", "anthropic"])
-    os.environ["ANTHROPIC_API_KEY"] = "test"
-    ai = bc.AI(a)
-    ai.llm.client = FakeClient(mode)
-    ai.me = "p1"; ai.guess_timeout = timeout
-    secret = "5079"
+class FakeOpenAI(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def reply(self, code, obj):
+        data = json.dumps(obj, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        REQUESTS.append((self.path, dict(self.headers), body))
+        st = json.loads(body["messages"][1]["content"])
+        m = MODE["name"]
+        content = None
+        if m == "good":
+            content = json.dumps({"guess": st["options"][0]["guess"], "reason": "最多分組"})
+        elif m == "second":
+            content = json.dumps({"guess": st["options"][1]["guess"], "reason": "次佳"})
+        elif m == "think":
+            content = "<think>先想想 {不是答案}</think>\n```json\n" + json.dumps(
+                {"guess": st["options"][1]["guess"], "reason": "推理模型"}) + "\n```"
+        elif m == "garbage":
+            content = "我覺得是 12345"
+        elif m == "dup":
+            content = '{"guess":"1123","reason":"x"}'
+        elif m == "bad_quality":
+            content = '{"guess":"0123","reason":"x"}'
+        elif m == "slow":
+            time.sleep(5)
+            content = '{"guess":"0123","reason":"x"}'
+        elif m == "no_json_mode":
+            if "response_format" in body:
+                return self.reply(400, {"error": {"message": "response_format not supported"}})
+            content = json.dumps({"guess": st["options"][0]["guess"], "reason": "ok"})
+        elif m == "bad_model":
+            return self.reply(404, {"error": {"message": "model not found"}})
+        elif m == "server_error":
+            return self.reply(500, {"error": {"message": "boom"}})
+        self.reply(200, {"choices": [{"index": 0, "finish_reason": "stop",
+                                      "message": {"role": "assistant", "content": content}}]})
+
+
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeOpenAI)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+BASE = f"http://127.0.0.1:{srv.server_port}/v1"
+
+
+def make_ai(mode, timeout=60.0, extra=()):
+    MODE["name"] = mode
+    ai = bc.AI(bc.parse_args(["ai", "--quiet", "--llm", "openai", "--llm-base-url", BASE,
+                              "--llm-model", "fake-model", *extra]))
+    ai.me = "p1"
+    ai.guess_timeout = timeout
     ai.cands = {"p2": list(bc.ALL_NUMBERS), "p3": list(bc.ALL_NUMBERS)}
     ai.hist = {"p2": [], "p3": []}
     for g in ("0123", "4567"):
-        for p in ("p2", "p3"):
-            a_, b_ = bc.score(g, secret if p == "p2" else "9812")
-            ai.cands[p] = [s for s in ai.cands[p] if bc.score(g, s) == (a_, b_)]
-            ai.hist[p].append((g, a_, b_))
+        for p, secret in (("p2", "5079"), ("p3", "9812")):
+            a, b = bc.score(g, secret)
+            ai.cands[p] = [s for s in ai.cands[p] if bc.score(g, s) == (a, b)]
+            ai.hist[p].append((g, a, b))
     return ai
 
+
 fails = 0
+
+
 def check(name, cond, note=""):
     global fails
     fails += not cond
-    print(("PASS " if cond else "FAIL ") + name, note)
+    print(("  [PASS] " if cond else "  [FAIL] ") + name + (f"（{note}）" if note else ""), flush=True)
 
-for mode, expect in [("good", "llm"), ("second", "llm"), ("garbage", "fallback:bad_json"),
-                     ("dup", "fallback:bad_guess"), ("bad_quality", None), ("slow", "fallback:timeout"),
-                     ("refusal", "fallback:refusal"), ("auth", "fallback:api_error:AuthenticationError")]:
+
+ALIVE = ["p1", "p2", "p3"]
+for mode, expect in [("good", "llm"), ("second", "llm"), ("think", "llm"), ("no_json_mode", "llm"),
+                     ("garbage", "fallback:bad_json"), ("dup", "fallback:bad_guess"),
+                     ("bad_quality", "fallback:rejected"), ("slow", "fallback:timeout"),
+                     ("server_error", "fallback:http_500"), ("bad_model", "fallback:http_404")]:
     ai = make_ai(mode, timeout=4.0 if mode == "slow" else 60.0)
-    t0 = time.monotonic(); g = ai.choose(["p1", "p2", "p3"]); dt = time.monotonic() - t0
-    ok = bc.valid_number(g) and dt < ai.guess_timeout
-    if expect: ok = ok and ai.stats.get(expect) == 1
-    else: ok = ok and (ai.stats.get("fallback:rejected") == 1 or ai.stats.get("llm") == 1)
-    check(f"{mode}: 喊 {g}", ok, f"{dt:.2f}s stats={ai.stats}")
-    if mode == "auth": check("auth 錯誤後停用 LLM", not ai.llm.enabled)
+    t0 = time.monotonic()
+    g = ai.choose(ALIVE)
+    dt = time.monotonic() - t0
+    check(f"{mode}：喊 {g}", bc.valid_number(g) and dt < ai.guess_timeout and ai.stats.get(expect) == 1,
+          f"{dt:.2f} 秒，{ai.stats}")
+    if mode == "bad_model":
+        check("模型不存在（404）後停用 LLM", not ai.llm.enabled)
+    if mode == "no_json_mode":
+        check("不支援 response_format 時自動改用純 prompt", ai.llm.json_mode is False)
 
-# 1.5 秒時限：不呼叫 LLM
-calls.clear(); ai = make_ai("good", timeout=1.5); g = ai.choose(["p1", "p2", "p3"])
-check("1.5 秒時限不呼叫 LLM", not calls and ai.stats.get("fallback:no_time") == 1, str(ai.stats))
+REQUESTS.clear()
+ai = make_ai("good", timeout=1.5)
+ai.choose(ALIVE)
+check("1.5 秒時限不呼叫 LLM", not REQUESTS and ai.stats.get("fallback:no_time") == 1, str(ai.stats))
 
-# 提示內容不含自己的秘密、請求參數正確
-calls.clear(); ai = make_ai("good"); ai.choose(["p1", "p2", "p3"])
-kw = calls[0]; st = json.loads(kw["messages"][0]["content"])
-check("請求帶 system prompt 與 json_schema", kw["system"] == bc.LLM_SYSTEM_PROMPT and kw["output_config"]["format"]["type"] == "json_schema")
-check("模型與 fallbacks", kw["model"] == "claude-opus-5-5" and kw["fallbacks"] == "default")
-check("提示不含自己的秘密", ai.secret not in kw["messages"][0]["content"])
-check("state 欄位", {"target", "opponents", "options", "my_exposure", "danger"} <= set(st), json.dumps(st, ensure_ascii=False)[:400])
+REQUESTS.clear()
+os.environ["BC_TEST_KEY"] = "sk-test-123"
+ai = make_ai("good", extra=["--llm-key-env", "BC_TEST_KEY"])
+ai.choose(ALIVE)
+path, headers, body = REQUESTS[0]
+st = json.loads(body["messages"][1]["content"])
+check("POST /v1/chat/completions", path == "/v1/chat/completions")
+check("system 訊息是 LLM_SYSTEM_PROMPT", body["messages"][0] == {"role": "system", "content": bc.LLM_SYSTEM_PROMPT})
+check("帶模型名稱、json_object 與 Bearer 金鑰",
+      body["model"] == "fake-model" and body["response_format"] == {"type": "json_object"}
+      and headers.get("Authorization") == "Bearer sk-test-123")
+check("提示不含自己的秘密", ai.secret not in body["messages"][1]["content"])
+check("局面欄位齊全", {"target", "opponents", "options", "my_exposure", "danger"} <= set(st))
 
-# 危險模式：非候選被拒
-ai = make_ai("good"); ai.mine = ["1111", "2222"]
-ai.llm.client = FakeClient("bad_quality")
-S = ai.cands[min(ai.cands, key=lambda p: len(ai.cands[p]))]
-g = ai.choose(["p1", "p2", "p3"])
-check("危險模式只喊候選", g in S or g in ai.cands["p2"] or g in ai.cands["p3"], f"{g} stats={ai.stats}")
+REQUESTS.clear()
+ai = make_ai("good", extra=["--llm-key-env", "BC_NO_SUCH_KEY"])
+ai.choose(ALIVE)
+check("沒有金鑰時不送 Authorization（Ollama）", "Authorization" not in REQUESTS[0][1])
 
-# 沒有金鑰
-os.environ.pop("ANTHROPIC_API_KEY")
-a = bc.parse_args(["ai", "--quiet"]); ai = bc.AI(a)
-check("沒有金鑰自動停用", not ai.llm.enabled, ai.llm.status)
-print("失敗", fails)
+ai = make_ai("bad_quality")
+ai.mine = ["1111", "2222"]                     # 危險模式
+g = ai.choose(ALIVE)
+check("危險模式拒用非候選", ai.stats.get("fallback:rejected") == 1 and g in ai.cands["p3"], f"{g} {ai.stats}")
+
+srv.shutdown()
+ai = make_ai("good", extra=["--llm-base-url", "http://127.0.0.1:1/v1"])
+t0 = time.monotonic()
+g = ai.choose(ALIVE)
+check("LLM 伺服器沒開：立即退回演算法", bc.valid_number(g) and ai.stats.get("fallback:connect_error") == 1
+      and time.monotonic() - t0 < 2, str(ai.stats))
+
+ai = bc.AI(bc.parse_args(["ai", "--quiet", "--llm", "off"]))
+check("--llm off 只用演算法", not ai.llm.enabled)
+print(f"\n失敗 {fails} 項")
+sys.exit(1 if fails else 0)

@@ -1,3 +1,2 @@
-# 伺服器、人類客戶端與演算法 AI 只使用 Python 3.10 以上的標準函式庫。
-# 以下只有 AI 的 LLM 模式（python bc.py ai --llm anthropic）需要：
-anthropic>=2.0
+# 本專題只使用 Python 3.10 以上的標準函式庫，不需要安裝任何第三方套件。
+# AI 的 LLM 模式用 urllib 呼叫 OpenAI 相容 API（例如 Ollama），同樣不需要額外套件。
