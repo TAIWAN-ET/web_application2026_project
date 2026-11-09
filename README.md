@@ -11,6 +11,7 @@
 ```
 .
 ├── README.md              本文件（專案總覽）
+├── MAIN.ipynb             控制台筆記本：分區段啟動伺服器／AI、修改 LLM 設定、跑測試
 ├── bc_selftest.py         課程提供的協定自我測試程式（測伺服器）
 ├── bc_game/
 │   ├── bc.py              主程式：server / client / ai 三種模式
@@ -24,6 +25,18 @@
     ├── 期中簡報.pptx
     └── 期中簡報.html
 ```
+
+## 用 MAIN.ipynb 操作（建議）
+
+用 Jupyter／VS Code 開啟根目錄的 `MAIN.ipynb`，先執行「0. 共用設定」，之後依需要執行各區段：
+
+1. **環境檢查**：Python 版本、檔案、埠號 6000、LLM 伺服器是否連得上與可用模型
+2. **LLM 設定**：查看與修改 `bc_game/llm_config.json`（切換 profile、換模型、新增提供者），並可「試問 LLM 一次」
+3. **開一局**：背景啟動伺服器、加入 LLM AI 與演算法 AI、看進度與名次、全部停止（人類玩家的指令會印出來，貼到終端機執行）
+4. **批次對戰**：LLM AI 對演算法 AI 連打 N 局並統計勝場
+5. **測試程式**：`bc_llm_test.py`、`bc_test.py`、`bc_selftest.py`
+
+背景行程的輸出存在 `run_logs/`（已加入 `.gitignore`）。
 
 ## 遊戲規則
 
