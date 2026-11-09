@@ -25,6 +25,11 @@
       "model": "gpt-4o-mini",
       "api_key_env": "OPENAI_API_KEY",
       "timeout": 15
+    },
+    "lemonade": {
+      "base_url": "http://127.0.0.1:13305/v1",
+      "model": "qwen2.5-it-3b-FLM",
+      "api_key_env": ""
     }
   }
 }
