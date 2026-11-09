@@ -6,7 +6,8 @@
 |---|---|
 | `bc.py` | 主程式（server / client / ai 三種模式） |
 | `bc_test.py` | 獨立黑箱測試程式（不匯入 `bc.py`，只透過 TCP 測試伺服器、AI、人類客戶端） |
-| `bc_llm_test.py` | LLM 模式的單元測試（假的 LLM 客戶端，不需網路與金鑰） |
+| `llm_config.json` | AI 的 LLM 設定檔：API 提供者（base URL）、模型、金鑰環境變數、逾時，可存多組 profile 切換 |
+| `bc_llm_test.py` | LLM 模式的單元測試（假的 OpenAI 相容伺服器，不需網路與金鑰） |
 | `requirements.txt` | 套件清單（本專題不需要第三方套件，檔案只有註解） |
 | `README.md` | 本說明文件 |
 
@@ -65,15 +66,54 @@ python bc_selftest.py --server "python bc_game/bc.py server"
 
 **AI 代理人** `python bc.py ai --host HOST [--port 5040] [--name NAME] [--team G00] [--quiet] [--games 1] [--llm openai|off] [--llm-base-url URL] [--llm-model M] [--llm-key-env VAR] [--llm-timeout 20]`
 
+#### LLM 設定檔 `llm_config.json`（建議用這個改提供者與模型）
+
+AI 啟動時會讀取 **`bc.py` 同資料夾的 `llm_config.json`**（伺服器用 `--bots` 啟動的 BOT 也會讀）。把常用的提供者存成多組 `profiles`，改 `active` 就能切換：
+
+```json
+{
+  "active": "ollama",
+  "enabled": true,
+  "timeout": 20,
+  "temperature": 0.2,
+  "profiles": {
+    "ollama":   {"base_url": "http://localhost:11434/v1", "model": "qwen2.5:7b",          "api_key_env": ""},
+    "lmstudio": {"base_url": "http://localhost:1234/v1",  "model": "qwen2.5-7b-instruct", "api_key_env": ""},
+    "vllm":     {"base_url": "http://localhost:8000/v1",  "model": "Qwen/Qwen2.5-7B-Instruct", "api_key_env": ""},
+    "openai":   {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini", "api_key_env": "OPENAI_API_KEY", "timeout": 15}
+  }
+}
+```
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `active` | 字串 | 要用哪一組 profile；也可以用 `--llm-profile 名稱` 臨時切換 |
+| `enabled` | 布林 | `false` 等於 `--llm off`，只用演算法 |
+| `base_url` | 字串 | OpenAI 相容 API 的網址，程式會 POST 到 `{base_url}/chat/completions` |
+| `model` | 字串 | 模型名稱（Ollama 用 `ollama list` 看到的名稱） |
+| `api_key_env` | 字串 | 存放 API 金鑰的**環境變數名稱**，空字串表示不送金鑰。金鑰本身不寫進設定檔，以免被 commit 到 GitHub |
+| `timeout` | 數字 | 單次呼叫最多等幾秒（另受 `guess_timeout × 0.6` 限制） |
+| `temperature` | 數字 0–2 | 取樣溫度，低一點選擇比較穩定 |
+
+- `enabled`、`timeout`、`temperature` 等欄位可以寫在最外層當共用設定，也可以寫在 profile 裡覆蓋（例如上面的 `openai` 把 `timeout` 改成 15）。
+- 新增一個提供者：在 `profiles` 裡加一組，再把 `active` 改成它的名字。
+- 用其他設定檔：`--llm-config 路徑` 或環境變數 `BC_LLM_CONFIG`。
+- 設定檔寫錯時（不是合法 JSON、profile 不存在、欄位型別錯誤）AI 仍會啟動：印出警告，改用預設值。用 Windows 記事本存檔產生的 BOM 也能讀。
+- AI 啟動時第一行會印出實際使用的設定與來源，例如 `LLM 模式：OpenAI 相容 API http://localhost:11434/v1/chat/completions，模型 qwen2.5:7b（無 API 金鑰）［設定檔 llm_config.json，profile「ollama」］`。
+
+**優先順序：命令列參數 > 環境變數 > `llm_config.json` > 程式預設值**。平常改設定檔即可，臨時測試再用下表的命令列參數覆蓋。
+
 | AI 的 LLM 選項 | 預設 | 環境變數 | 說明 |
 |---|---|---|---|
+| `--llm-config` | `bc.py` 旁的 `llm_config.json` | `BC_LLM_CONFIG` | 設定檔路徑 |
+| `--llm-profile` | 設定檔的 `active` | `BC_LLM_PROFILE` | 使用設定檔中的哪一組 profile |
 | `--llm` | `openai` | `BC_LLM_PROVIDER` | `openai`＝OpenAI 相容 API；`off`＝只用演算法 |
 | `--llm-base-url` | `http://localhost:11434/v1` | `BC_LLM_BASE_URL` | API 的 base URL，程式會 POST 到 `{base}/chat/completions`。Ollama 用預設值；LM Studio 為 `http://localhost:1234/v1`；vLLM／llama.cpp server 通常是 `http://localhost:8000/v1`；OpenAI 雲端為 `https://api.openai.com/v1` |
 | `--llm-model` | `qwen2.5:7b` | `BC_LLM_MODEL` | 模型名稱（Ollama 用 `ollama list` 看到的名稱，例如 `llama3.1:8b`、`qwen3:8b`） |
 | `--llm-key-env` | `OPENAI_API_KEY` | `BC_LLM_KEY_ENV` | **存放 API 金鑰的環境變數名稱**；有設定才送 `Authorization: Bearer`，本機模型不設也可以。金鑰不從命令列傳入，避免留在 shell 歷史中 |
 | `--llm-timeout` | `20` | `BC_LLM_TIMEOUT` | 單次 LLM 呼叫最多等幾秒（另受 `guess_timeout × 0.6` 限制） |
 
-伺服器用 `--bots K` 啟動的 AI 子行程會繼承環境變數，所以用環境變數就能讓 BOT 也走 LLM 模式。
+伺服器用 `--bots K` 啟動的 AI 子行程會讀同一份 `llm_config.json`，也會繼承環境變數，所以 BOT 也會走同樣的 LLM 設定。
 
 `--games N` 讓 AI 每局結束後自動重新連線、連續參加 N 局（`0` 表示不限），適合跨組對戰或 50 局測試；遇到 `GAME_IN_PROGRESS` 或伺服器暫時連不上會每秒重試。
 
@@ -357,7 +397,7 @@ System prompt 是固定字串、每回合變動的局面放在 user 訊息中；
 #### 測試
 
 - `bc_test.py` 72 項、`bc_selftest.py` 48 項全數通過（測試環境沒有開 LLM 伺服器，且時限 1.5 秒時不會呼叫 LLM，所以結果與演算法版相同）。
-- `python bc_llm_test.py`（22 項）在本機開一個**假的 OpenAI 相容伺服器**，測過正確答案、次佳、帶 `<think>` 與程式碼框、不支援 `response_format`、亂碼、重複數字、品質太差、5 秒才回、HTTP 500、模型不存在（404）、伺服器沒開等情況：每一種都在時限內送出合法喊數，錯誤時正確退回演算法；並檢查請求路徑、system prompt、`Authorization` 標頭，以及提示中不含自己的秘密。
+- `python bc_llm_test.py`（33 項）在本機開一個**假的 OpenAI 相容伺服器**，測過正確答案、次佳、帶 `<think>` 與程式碼框、不支援 `response_format`、亂碼、重複數字、品質太差、5 秒才回、HTTP 500、模型不存在（404）、伺服器沒開等情況：每一種都在時限內送出合法喊數，錯誤時正確退回演算法；並檢查請求路徑、system prompt、`Authorization` 標頭，以及提示中不含自己的秘密；另有 10 項測設定檔（profile 切換、優先順序、格式錯誤、型別錯誤、BOM）。
 
 #### 延遲
 

@@ -14,6 +14,7 @@
 ├── bc_selftest.py         課程提供的協定自我測試程式（測伺服器）
 ├── bc_game/
 │   ├── bc.py              主程式：server / client / ai 三種模式
+│   ├── llm_config.json    AI 的 LLM 設定檔（API 提供者、網址、模型）
 │   ├── bc_test.py         自寫的獨立黑箱測試（不匯入 bc.py，只透過 TCP 測試）
 │   ├── bc_llm_test.py     LLM 模式的單元測試（假的 LLM，不需金鑰）
 │   ├── README.md          詳細技術說明（協定細節、錯誤碼、AI 策略與實驗數據）
@@ -89,9 +90,11 @@ python bc.py server --port 6000 --players 2 --guess-timeout 60
 python bc.py ai --port 6000 --name LLM-AI                          # 用 LLM 喊數
 python bc.py ai --port 6000 --name ALGO-AI --llm off               # 只用演算法
 
-# 其他 OpenAI 相容服務：改 base URL、模型與金鑰環境變數即可
-python bc.py ai --port 6000 --name LMS-AI --llm-base-url http://localhost:1234/v1 --llm-model qwen2.5-7b-instruct
+# 換到設定檔裡的其他 profile（lmstudio、vllm、openai…），或直接編輯 llm_config.json 的 active
+python bc.py ai --port 6000 --name LMS-AI --llm-profile lmstudio
 ```
+
+要換 API 提供者或模型，**直接編輯 `bc_game/llm_config.json`** 即可（說明見 [`bc_game/README.md` 第 1.1 節](bc_game/README.md#11-命令列選項規範-52-節)）。
 
 跑一場純 AI 對戰（4 個 AI、連續 5 局）：
 

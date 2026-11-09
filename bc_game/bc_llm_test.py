@@ -126,6 +126,7 @@ check("帶模型名稱、json_object 與 Bearer 金鑰",
       body["model"] == "fake-model" and body["response_format"] == {"type": "json_object"}
       and headers.get("Authorization") == "Bearer sk-test-123")
 check("提示不含自己的秘密", ai.secret not in body["messages"][1]["content"])
+check("temperature 依設定送出", body["temperature"] == 0.2)
 check("局面欄位齊全", {"target", "opponents", "options", "my_exposure", "danger"} <= set(st))
 
 REQUESTS.clear()
@@ -147,5 +148,55 @@ check("LLM 伺服器沒開：立即退回演算法", bc.valid_number(g) and ai.s
 
 ai = bc.AI(bc.parse_args(["ai", "--quiet", "--llm", "off"]))
 check("--llm off 只用演算法", not ai.llm.enabled)
+
+# ---- 設定檔 llm_config.json ----
+import tempfile
+import contextlib
+import io
+
+TMP = tempfile.mkdtemp()
+
+
+def cfg_args(cfg, *extra, raw=None):
+    path = os.path.join(TMP, "c.json")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(raw if raw is not None else json.dumps(cfg, ensure_ascii=False))
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        a = bc.parse_args(["ai", "--quiet", "--llm-config", path, *extra])
+    return a, err.getvalue()
+
+
+for k in ("BC_LLM_MODEL", "BC_LLM_BASE_URL", "BC_LLM_PROVIDER", "BC_LLM_PROFILE", "BC_LLM_CONFIG", "BC_LLM_TIMEOUT"):
+    os.environ.pop(k, None)
+a = bc.parse_args(["ai", "--quiet"])
+check("讀取 bc.py 旁的 llm_config.json（active=ollama）",
+      a.llm_base_url == "http://localhost:11434/v1" and a.llm_model == "qwen2.5:7b" and "ollama" in a.llm_source,
+      a.llm_source)
+SAMPLE = {"active": "lm", "timeout": 30, "temperature": 0.5,
+          "profiles": {"lm": {"base_url": "http://localhost:1234/v1", "model": "m-lm"},
+                       "cloud": {"base_url": "https://x.example/v1", "model": "m-cloud", "api_key_env": "K", "timeout": 9}}}
+a, _ = cfg_args(SAMPLE)
+check("active profile 生效、頂層共用設定生效",
+      (a.llm_base_url, a.llm_model, a.llm_timeout, a.llm_temperature) == ("http://localhost:1234/v1", "m-lm", 30.0, 0.5))
+a, _ = cfg_args(SAMPLE, "--llm-profile", "cloud")
+check("--llm-profile 切換，profile 內的 timeout 覆蓋頂層",
+      (a.llm_model, a.llm_key_env, a.llm_timeout) == ("m-cloud", "K", 9.0))
+os.environ["BC_LLM_MODEL"] = "env-model"
+a, _ = cfg_args(SAMPLE)
+check("環境變數覆蓋設定檔", a.llm_model == "env-model")
+a, _ = cfg_args(SAMPLE, "--llm-model", "cli-model")
+check("命令列覆蓋環境變數", a.llm_model == "cli-model")
+os.environ.pop("BC_LLM_MODEL")
+a, err = cfg_args(None, raw="{ 這不是 JSON ")
+check("設定檔不是合法 JSON：警告並用預設值", a.llm_model == "qwen2.5:7b" and "警告" in err)
+a, err = cfg_args(SAMPLE, "--llm-profile", "nope")
+check("profile 不存在：警告並用預設值", a.llm_model == "qwen2.5:7b" and "nope" in err)
+a, _ = cfg_args({"enabled": False})
+check("enabled=false 等於 --llm off", a.llm == "off")
+a, err = cfg_args({"timeout": "快", "model": 123})
+check("欄位型別錯誤：警告並用預設值", a.llm_timeout == 20.0 and a.llm_model == "qwen2.5:7b" and "timeout" in err)
+a, _ = cfg_args(None, raw="\ufeff" + json.dumps(SAMPLE))
+check("容忍記事本存檔的 BOM", a.llm_model == "m-lm")
 print(f"\n失敗 {fails} 項")
 sys.exit(1 if fails else 0)

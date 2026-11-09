@@ -815,8 +815,8 @@ class LLMGuesser:
     可接 Ollama（預設 http://localhost:11434/v1）、LM Studio、vLLM、llama.cpp server 等。
     任何失敗都回傳 (None, 原因)，由呼叫端退回演算法。"""
 
-    def __init__(self, provider, base_url, model, key_env, log):
-        self.provider, self.model, self.log = provider, model, log
+    def __init__(self, provider, base_url, model, key_env, log, temperature=LLM_TEMPERATURE):
+        self.provider, self.model, self.log, self.temperature = provider, model, log, temperature
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.key = os.environ.get(key_env) if key_env else None     # 本機模型通常不需要金鑰
         self.json_mode = True          # 先要求 response_format=json_object；伺服器不支援就自動關掉
@@ -834,7 +834,7 @@ class LLMGuesser:
             self.status = f"不支援的 LLM provider {provider}，改用演算法"
 
     def _request(self, prompt, timeout):
-        body = {"model": self.model, "temperature": LLM_TEMPERATURE, "stream": False,
+        body = {"model": self.model, "temperature": self.temperature, "stream": False,
                 "messages": [{"role": "system", "content": LLM_SYSTEM_PROMPT},
                              {"role": "user", "content": prompt}]}
         if self.json_mode:
@@ -931,8 +931,9 @@ class AI:
 
     def __init__(self, args):
         self.a = args
-        self.llm = LLMGuesser(args.llm, args.llm_base_url, args.llm_model, args.llm_key_env, self.log)
-        self.log(self.llm.status)
+        self.llm = LLMGuesser(args.llm, args.llm_base_url, args.llm_model, args.llm_key_env, self.log,
+                              args.llm_temperature)
+        self.log(f"{self.llm.status}［{args.llm_source}］")
         self.reset()
 
     def reset(self):
@@ -1380,6 +1381,75 @@ def positive(x):
     return v
 
 
+LLM_DEFAULTS = {"enabled": True, "base_url": "http://localhost:11434/v1", "model": "qwen2.5:7b",
+                "api_key_env": "OPENAI_API_KEY", "timeout": 20.0, "temperature": LLM_TEMPERATURE}
+LLM_CONFIG_NAME = "llm_config.json"
+
+
+def load_llm_config(path, profile_name, explicit):
+    """讀取 LLM 設定檔，回傳 (設定 dict, 說明)。檔案沒有或格式錯誤時印出警告並回傳 {}，不讓 AI 無法啟動。
+
+    格式：{"active": "ollama", "timeout": 20, "profiles": {"ollama": {"base_url": ..., "model": ...}, ...}}
+    頂層的共用設定會被所選 profile 中的同名欄位覆蓋。"""
+    if not os.path.exists(path):
+        if explicit:
+            print(f"警告：找不到 LLM 設定檔 {path}，改用預設值", file=sys.stderr, flush=True)
+        return {}, "沒有設定檔，使用預設值"
+    try:
+        with open(path, encoding="utf-8-sig") as f:        # utf-8-sig：容忍 Windows 記事本加的 BOM
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        print(f"警告：LLM 設定檔 {path} 無法讀取或不是合法 JSON（{e}），改用預設值", file=sys.stderr, flush=True)
+        return {}, "設定檔格式錯誤，使用預設值"
+    if not isinstance(data, dict):
+        print(f"警告：LLM 設定檔 {path} 最外層必須是 JSON 物件，改用預設值", file=sys.stderr, flush=True)
+        return {}, "設定檔格式錯誤，使用預設值"
+    cfg = {k: v for k, v in data.items() if k in LLM_DEFAULTS}
+    profiles = data.get("profiles") if isinstance(data.get("profiles"), dict) else {}
+    name = profile_name or data.get("active")
+    if name:
+        prof = profiles.get(name)
+        if not isinstance(prof, dict):
+            print(f"警告：設定檔中沒有 profile「{name}」（可用：{'、'.join(profiles) or '無'}），改用預設值",
+                  file=sys.stderr, flush=True)
+            return {}, f"找不到 profile {name}，使用預設值"
+        cfg.update({k: v for k, v in prof.items() if k in LLM_DEFAULTS})
+    return cfg, f"設定檔 {os.path.basename(path)}" + (f"，profile「{name}」" if name else "")
+
+
+def resolve_llm_settings(a):
+    """決定 LLM 設定，優先順序：命令列 > 環境變數 > 設定檔（llm_config.json）> 程式預設值。"""
+    env = os.environ.get
+    path = a.llm_config or env("BC_LLM_CONFIG") or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                                   LLM_CONFIG_NAME)
+    cfg, a.llm_source = load_llm_config(path, a.llm_profile or env("BC_LLM_PROFILE"),
+                                        explicit=bool(a.llm_config or env("BC_LLM_CONFIG")))
+    merged = dict(LLM_DEFAULTS)
+    for k, v in cfg.items():                                 # 型別不對的欄位忽略並警告
+        ok = {"enabled": isinstance(v, bool),
+              "timeout": isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0,
+              "temperature": isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 2,
+              }.get(k, isinstance(v, str))
+        if ok:
+            merged[k] = v
+        else:
+            print(f"警告：設定檔欄位 {k} 的值 {v!r} 不合法，改用預設值 {LLM_DEFAULTS[k]!r}", file=sys.stderr, flush=True)
+    provider = "openai" if merged["enabled"] else "off"
+    a.llm = a.llm or env("BC_LLM_PROVIDER") or provider
+    a.llm_base_url = a.llm_base_url or env("BC_LLM_BASE_URL") or merged["base_url"]
+    a.llm_model = a.llm_model or env("BC_LLM_MODEL") or merged["model"]
+    a.llm_key_env = a.llm_key_env if a.llm_key_env is not None else env("BC_LLM_KEY_ENV", merged["api_key_env"])
+    try:
+        a.llm_timeout = a.llm_timeout or (positive(env("BC_LLM_TIMEOUT")) if env("BC_LLM_TIMEOUT") else None) \
+            or float(merged["timeout"])
+    except (ValueError, argparse.ArgumentTypeError):
+        a.llm_timeout = float(merged["timeout"])
+    a.llm_temperature = float(merged["temperature"])
+    if a.llm not in ("openai", "off"):
+        print(f"警告：BC_LLM_PROVIDER={a.llm} 不支援，改用 openai", file=sys.stderr, flush=True)
+        a.llm = "openai"
+
+
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="BC/1.0 多人幾A幾B網路對戰")
     sub = ap.add_subparsers(dest="mode", required=True)
@@ -1408,16 +1478,18 @@ def parse_args(argv=None):
             c.add_argument("--quiet", action="store_true", help="不輸出過程")
             c.add_argument("--games", type=int, default=1,
                            help="連續參加幾局（每局結束後自動重新連線），0 表示不限")
-            env = os.environ.get
-            c.add_argument("--llm", choices=("openai", "off"), default=env("BC_LLM_PROVIDER", "openai"),
+            c.add_argument("--llm-config", default=None,
+                           help="LLM 設定檔路徑（預設為 bc.py 同資料夾的 llm_config.json；環境變數 BC_LLM_CONFIG）")
+            c.add_argument("--llm-profile", default=None,
+                           help="使用設定檔中的哪一組 profile（預設為設定檔的 active；環境變數 BC_LLM_PROFILE）")
+            c.add_argument("--llm", choices=("openai", "off"), default=None,
                            help="喊數用的 LLM：openai＝OpenAI 相容 API（Ollama 等）；off＝只用演算法")
-            c.add_argument("--llm-base-url", default=env("BC_LLM_BASE_URL", "http://localhost:11434/v1"),
+            c.add_argument("--llm-base-url", default=None,
                            help="OpenAI 相容 API 的 base URL（預設 Ollama：http://localhost:11434/v1）")
-            c.add_argument("--llm-model", default=env("BC_LLM_MODEL", "qwen2.5:7b"),
-                           help="模型名稱（預設 qwen2.5:7b；環境變數 BC_LLM_MODEL）")
-            c.add_argument("--llm-key-env", default=env("BC_LLM_KEY_ENV", "OPENAI_API_KEY"),
-                           help="存放 API 金鑰的環境變數名稱（預設 OPENAI_API_KEY；本機模型不設也可以）")
-            c.add_argument("--llm-timeout", type=positive, default=float(env("BC_LLM_TIMEOUT", "20")),
+            c.add_argument("--llm-model", default=None, help="模型名稱（預設 qwen2.5:7b）")
+            c.add_argument("--llm-key-env", default=None,
+                           help="存放 API 金鑰的環境變數名稱（本機模型不需要）")
+            c.add_argument("--llm-timeout", type=positive, default=None,
                            help="單次 LLM 呼叫最多等幾秒（另受 guess_timeout×0.6 限制，預設 20）")
         else:
             c.add_argument("--secret", help="指定自己的秘密數字（預設隨機產生）")
@@ -1433,6 +1505,8 @@ def parse_args(argv=None):
     else:
         if a.mode == "ai" and not a.name:
             a.name = f"{a.team}-AI"
+        if a.mode == "ai":
+            resolve_llm_settings(a)
         if not valid_label(a.name) or not valid_label(a.team):
             ap.error("--name 與 --team 必須是 1–20 個字元")
         if a.mode == "client" and a.secret and not valid_number(a.secret):

@@ -1,0 +1,30 @@
+{
+  "說明": "AI 代理人的 LLM 設定。改 active 就能切換下面的 profile；命令列參數與環境變數會覆蓋這裡的設定。",
+  "active": "ollama",
+  "enabled": true,
+  "timeout": 20,
+  "temperature": 0.2,
+  "profiles": {
+    "ollama": {
+      "base_url": "http://localhost:11434/v1",
+      "model": "qwen2.5:7b",
+      "api_key_env": ""
+    },
+    "lmstudio": {
+      "base_url": "http://localhost:1234/v1",
+      "model": "qwen2.5-7b-instruct",
+      "api_key_env": ""
+    },
+    "vllm": {
+      "base_url": "http://localhost:8000/v1",
+      "model": "Qwen/Qwen2.5-7B-Instruct",
+      "api_key_env": ""
+    },
+    "openai": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "api_key_env": "OPENAI_API_KEY",
+      "timeout": 15
+    }
+  }
+}
