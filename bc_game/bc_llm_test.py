@@ -13,6 +13,10 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bc
 
+for _k in ("BC_LLM_MODEL", "BC_LLM_BASE_URL", "BC_LLM_PROVIDER", "BC_LLM_PROFILE", "BC_LLM_CONFIG",
+           "BC_LLM_TIMEOUT", "BC_LLM_KEY_ENV"):
+    os.environ.pop(_k, None)             # 測試不受外部環境變數影響
+
 MODE = {"name": "good"}
 REQUESTS = []
 
@@ -170,8 +174,11 @@ def cfg_args(cfg, *extra, raw=None):
 for k in ("BC_LLM_MODEL", "BC_LLM_BASE_URL", "BC_LLM_PROVIDER", "BC_LLM_PROFILE", "BC_LLM_CONFIG", "BC_LLM_TIMEOUT"):
     os.environ.pop(k, None)
 a = bc.parse_args(["ai", "--quiet"])
-check("讀取 bc.py 旁的 llm_config.json（active=ollama）",
-      a.llm_base_url == "http://localhost:11434/v1" and a.llm_model == "qwen2.5:7b" and "ollama" in a.llm_source,
+with open(os.path.join(os.path.dirname(os.path.abspath(bc.__file__)), "llm_config.json"), encoding="utf-8-sig") as f:
+    real = json.load(f)
+prof = real["profiles"][real["active"]]
+check("讀取 bc.py 旁的 llm_config.json（依它的 active）",
+      a.llm_base_url == prof["base_url"] and a.llm_model == prof["model"] and real["active"] in a.llm_source,
       a.llm_source)
 SAMPLE = {"active": "lm", "timeout": 30, "temperature": 0.5,
           "profiles": {"lm": {"base_url": "http://localhost:1234/v1", "model": "m-lm"},
