@@ -649,7 +649,9 @@ class Server:
 
     async def main(self):
         try:
-            srv = await asyncio.start_server(self.handle, self.a.host, self.a.port, reuse_address=True)
+            # Windows 的 SO_REUSEADDR 會允許與其他程式共用同一個埠（埠號被占用也不報錯），所以只在非 Windows 啟用
+            srv = await asyncio.start_server(self.handle, self.a.host, self.a.port,
+                                             reuse_address=(os.name != "nt"))
         except OSError as e:
             self.say(f"無法在 {self.a.host}:{self.a.port} 監聽：{e}（埠號可能已被占用）")
             raise SystemExit(1)
