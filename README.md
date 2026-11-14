@@ -21,6 +21,8 @@
 │   ├── README.md          詳細技術說明（協定細節、錯誤碼、AI 策略與實驗數據）
 │   └── requirements.txt   套件清單（無第三方套件）
 └── slides/
+    ├── 期末架構簡報.pptx  需求、Server 設計、LLM 實作、MAIN.ipynb 用法
+    ├── 期末架構簡報.pdf
     ├── 期中簡報.pdf
     ├── 期中簡報.pptx
     └── 期中簡報.html
