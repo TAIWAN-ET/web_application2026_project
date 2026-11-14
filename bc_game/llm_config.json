@@ -1,6 +1,6 @@
 {
   "說明": "AI 代理人的 LLM 設定。改 active 就能切換下面的 profile；命令列參數與環境變數會覆蓋這裡的設定。",
-  "active": "ollama",
+  "active": "lemonade",
   "enabled": true,
   "timeout": 20,
   "temperature": 0.2,
@@ -28,7 +28,7 @@
     },
     "lemonade": {
       "base_url": "http://127.0.0.1:13305/v1",
-      "model": "qwen2.5-it-3b-FLM",
+      "model": "gemma-4-12B-it-GGUF",
       "api_key_env": ""
     }
   }
